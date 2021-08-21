@@ -30,15 +30,13 @@ func main() {
 		panic(err)
 	}
 
-	files := make([]File, 0, 1000)
+	files := make([]File, 0, len(csvLines))
 
-	lineNum := 0
 	for _, line := range csvLines {
 		pdna, _ := base64.StdEncoding.DecodeString(line[1])
 		if len(pdna) != 144 {
 			panic("wrong hash length for file: " + line[0])
 		}
-		lineNum++
 		matchInfo := File{
 			FileName:       line[0],
 			PhotoDNA:       pdna,
@@ -48,8 +46,7 @@ func main() {
 		files = append(files, matchInfo)
 	}
 
-	// log.Println("hashes: ", len(hashes))
-	// log.Println("files: ", len(files))
+	// log.Println("loaded", len(files), "files")
 
 	var wg sync.WaitGroup
 
@@ -57,7 +54,10 @@ func main() {
 
 	for index, _ := range files {
 		wg.Add(1)
-		go hashForFile(&wg, index, files)
+		go func(index int) {
+			defer wg.Done()
+			hashForFile(index, files)
+		}(index)
 	}
 
 	wg.Wait()
@@ -69,9 +69,7 @@ func main() {
 	}
 }
 
-func hashForFile(wg *sync.WaitGroup, index int, files []File) {
-	defer wg.Done()
-
+func hashForFile(index int, files []File) {
 	thisPdna := files[index].PhotoDNA
 
 	for i := index + 1; i < len(files); i++ {
@@ -110,7 +108,6 @@ func hashForFile(wg *sync.WaitGroup, index int, files []File) {
 }
 
 func calcDistance(h1, h2 []byte) (distance int) {
-	distance = 0
 	if len(h1) != 144 {
 		panic("h1 wrong length")
 	}
